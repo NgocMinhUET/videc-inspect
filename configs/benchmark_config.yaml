@@ -1,0 +1,80 @@
+# ViDEC-Inspect Benchmark Configuration v0.1
+
+benchmark:
+  name: "ViDEC-Inspect"
+  version: "0.1"
+  full_name: "Verification-Driven Underwater Infrastructure Inspection Benchmark"
+  
+# Severity thresholds (unified across all modules)
+severity_thresholds:
+  crack:
+    method: "width_based"
+    minor:
+      max_width_mm: 1.0
+    moderate:
+      min_width_mm: 1.0
+      max_width_mm: 4.0
+    severe:
+      min_width_mm: 4.0
+  
+  spall:
+    method: "depth_based"
+    minor:
+      max_depth_mm: 5.0
+    moderate:
+      min_depth_mm: 5.0
+      max_depth_mm: 20.0
+    severe:
+      min_depth_mm: 20.0
+
+# Class taxonomy (standardized naming)
+taxonomy:
+  defect_classes:
+    - crack
+    - spall  # NOT spalling - standardized to "spall"
+  
+  hard_negative_types:
+    - stain
+    - shadow
+    - texture_variation
+    - biofouling  # standardized from biological_growth
+    - surface_artifact
+
+# Scene families (Phase 1: flat_wall only)
+scene_families:
+  phase1:
+    - flat_wall
+  phase2_planned:
+    - pipe_inspection
+    - dam_wall
+    - bridge_pier
+
+# Verification evidence requirements
+verification:
+  crack:
+    minimal_evidence:
+      - roi
+      - mask
+      - skeleton
+      - width_profile
+    closeup_beneficial: true
+    
+  spall:
+    minimal_evidence:
+      - roi
+      - mask
+      - depth_map
+      - area
+    closeup_beneficial: true
+
+# Camera parameters (for metrology)
+camera:
+  focal_length_px: 1100.0
+  baseline_m: 0.12
+  principal_point: [960, 540]
+  fov_deg: 90.0
+
+# Random seed management
+random_seed:
+  enabled: true
+  default_seed: 42

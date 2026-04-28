@@ -6,17 +6,21 @@ Implements 4-layer annotation schema:
 2. Geometry: skeleton, contour, topology
 3. Metrology: physical measurements
 4. Verification: evidence requirements
+
+All schemas include benchmark metadata for standardization.
 """
 
 import numpy as np
 from typing import Dict, List, Optional
 from pathlib import Path
 import cv2
+from ..utils.config import benchmark_config
 
 
 def write_detection_json(
     frame_id: int,
     episode_id: str,
+    scene_id: str,
     image_size: tuple,
     cracks: List[Dict],
     spalls: List[Dict],
@@ -24,19 +28,20 @@ def write_detection_json(
     masks_dir: str,
 ) -> Dict:
     """
-    Write detection layer JSON.
+    Write detection layer JSON with standardized benchmark schema.
     
     Args:
         frame_id: Frame number
-        episode_id: Episode identifier
+        episode_id: Episode identifier (e.g., "flatwall_00000")
+        scene_id: Scene identifier (e.g., "flat_wall_01")
         image_size: (width, height)
         cracks: List of crack defects
-        spalls: List of spalling defects
+        spalls: List of spall defects
         negatives: List of hard negatives
         masks_dir: Directory to save mask images
         
     Returns:
-        detection_dict: Detection annotation dictionary
+        detection_dict: Detection annotation dictionary with benchmark metadata
     """
     width, height = image_size
     
@@ -47,31 +52,31 @@ def write_detection_json(
     # Process cracks
     for crack in cracks:
         # Save mask
-        mask_filename = f"frame_{frame_id:06d}_{crack['defect_id']}.png"
+        mask_filename = f"{crack['defect_id']}.png"
         mask_path = Path(masks_dir) / mask_filename
         cv2.imwrite(str(mask_path), crack['mask'])
         
         defect_entry = {
             "defect_id": crack['defect_id'],
-            "class": "crack",
+            "class_name": "crack",  # Standardized to "crack" not "cracking"
             "bbox_xyxy": crack['bbox_xyxy'],
             "bbox_xywh": _xyxy_to_xywh(crack['bbox_xyxy']),
             "mask_path": f"annotations/masks/{mask_filename}",
             "mask_area_pixels": crack['mask_area_pixels'],
-            "confidence": 1.0,
+            "confidence": 1.0,  # Ground truth
         }
         defects_list.append(defect_entry)
     
-    # Process spalls
+    # Process spalls (standardized to "spall" not "spalling")
     for spall in spalls:
         # Save mask
-        mask_filename = f"frame_{frame_id:06d}_{spall['defect_id']}.png"
+        mask_filename = f"{spall['defect_id']}.png"
         mask_path = Path(masks_dir) / mask_filename
         cv2.imwrite(str(mask_path), spall['mask'])
         
         defect_entry = {
             "defect_id": spall['defect_id'],
-            "class": "spalling",
+            "class_name": "spall",  # Standardized to "spall" not "spalling"
             "bbox_xyxy": spall['bbox_xyxy'],
             "bbox_xywh": _xyxy_to_xywh(spall['bbox_xyxy']),
             "mask_path": f"annotations/masks/{mask_filename}",
@@ -87,15 +92,28 @@ def write_detection_json(
             "negative_id": negative['negative_id'],
             "type": negative['type'],
             "bbox_xyxy": negative['bbox_xyxy'],
-            "reason": negative['distinguishing_feature'],
+            "distinguishing_feature": negative['distinguishing_feature'],
         }
         negatives_list.append(negative_entry)
     
+    # Benchmark metadata (standardized schema)
     detection_dict = {
-        "frame_id": frame_id,
+        # Benchmark identification
+        "benchmark_name": benchmark_config.benchmark_name,
+        "benchmark_version": benchmark_config.benchmark_version,
+        "annotation_layer": "detection",
+        
+        # Scene and frame identification
+        "scene_family": "flat_wall",  # Phase 1: flat_wall only
+        "scene_id": scene_id,
         "episode_id": episode_id,
+        "frame_id": frame_id,
+        
+        # Image properties
         "image_width": width,
         "image_height": height,
+        
+        # Annotations
         "num_defects": len(defects_list),
         "defects": defects_list,
         "hard_negatives": negatives_list,
@@ -175,12 +193,12 @@ def write_metrology_json(
     camera_params: Optional[Dict] = None,
 ) -> Dict:
     """
-    Write metrology layer JSON.
+    Write metrology layer JSON with unified severity thresholds.
     
     Args:
         frame_id: Frame number
         cracks: List of crack defects
-        spalls: List of spalling defects
+        spalls: List of spall defects
         pixel_to_meter: Conversion factor
         mean_distance_to_wall: Distance to wall in meters
         camera_params: Camera parameters dictionary
@@ -189,11 +207,11 @@ def write_metrology_json(
         metrology_dict: Metrology annotation dictionary
     """
     if camera_params is None:
-        camera_params = {
-            "focal_length_px": 1100.0,
-            "baseline_m": 0.12,
-            "principal_point": [960, 540],
-        }
+        camera_params = benchmark_config.get_camera_params()
+    
+    # Get severity thresholds from centralized config
+    crack_thresholds = benchmark_config.get_severity_thresholds('crack')
+    spall_thresholds = benchmark_config.get_severity_thresholds('spall')
     
     defects_metrology = []
     
@@ -201,6 +219,7 @@ def write_metrology_json(
     for crack in cracks:
         # Width profile
         width_profile_mm = crack.get('width_profile_mm', [])
+        mean_width_mm = float(crack.get('mean_width_mm', 0))
         
         if len(width_profile_mm) > 0:
             num_measurements = len(width_profile_mm)
@@ -209,47 +228,58 @@ def write_metrology_json(
             num_measurements = 0
             positions_normalized = []
         
+        # Classify severity using centralized config
+        severity = benchmark_config.classify_severity('crack', mean_width_mm)
+        
         metrology_entry = {
             "defect_id": crack['defect_id'],
-            "class": "crack",
+            "class_name": "crack",
             "length_m": float(crack.get('length_m', 0)),
             "width_profile": {
                 "num_measurements": num_measurements,
                 "positions_normalized": positions_normalized,
                 "widths_mm": [float(w) for w in width_profile_mm],
-                "mean_width_mm": float(crack.get('mean_width_mm', 0)),
+                "mean_width_mm": mean_width_mm,
                 "max_width_mm": float(crack.get('max_width_mm', 0)),
                 "width_std_mm": float(crack.get('width_std_mm', 0)),
             },
-            "severity": crack['severity'],
+            "severity": severity,
             "severity_criteria": {
-                "method": "width_based",
-                "threshold_minor_mm": 1.0,
-                "threshold_moderate_mm": 2.0,
-                "threshold_severe_mm": 4.0,
+                "method": crack_thresholds['method'],
+                "threshold_minor_mm": crack_thresholds['minor']['max_width_mm'],
+                "threshold_moderate_mm": crack_thresholds['moderate']['max_width_mm'],
+                "threshold_severe_mm": crack_thresholds['severe']['min_width_mm'],
             },
         }
         defects_metrology.append(metrology_entry)
     
     # Process spalls
     for spall in spalls:
+        depth_mm = float(spall.get('depth_mm', 0))
+        
+        # Classify severity using centralized config
+        severity = benchmark_config.classify_severity('spall', depth_mm)
+        
         metrology_entry = {
             "defect_id": spall['defect_id'],
-            "class": "spalling",
+            "class_name": "spall",
             "area_m2": float(spall.get('area_m2', 0)),
-            "depth_mm": float(spall.get('depth_mm', 0)),
+            "depth_mm": depth_mm,
             "volume_cm3": float(spall.get('volume_cm3', 0)),
-            "severity": spall['severity'],
+            "severity": severity,
             "severity_criteria": {
-                "method": "depth_based",
-                "threshold_minor_mm": 5.0,
-                "threshold_moderate_mm": 10.0,
-                "threshold_severe_mm": 20.0,
+                "method": spall_thresholds['method'],
+                "threshold_minor_mm": spall_thresholds['minor']['max_depth_mm'],
+                "threshold_moderate_mm": spall_thresholds['moderate']['max_depth_mm'],
+                "threshold_severe_mm": spall_thresholds['severe']['min_depth_mm'],
             },
         }
         defects_metrology.append(metrology_entry)
     
     metrology_dict = {
+        "benchmark_name": benchmark_config.benchmark_name,
+        "benchmark_version": benchmark_config.benchmark_version,
+        "annotation_layer": "metrology",
         "frame_id": frame_id,
         "camera_parameters": camera_params,
         "mean_distance_to_wall_m": float(mean_distance_to_wall),

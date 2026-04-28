@@ -74,30 +74,54 @@ def format_frame_id(frame_id: int, width: int = 6) -> str:
     return str(frame_id).zfill(width)
 
 
-def get_frame_paths(output_dir: str, frame_id: int) -> Dict[str, str]:
+def get_frame_paths(output_dir: str, episode_id: int, frame_id: int) -> Dict[str, str]:
     """
-    Get standard file paths for a frame.
+    Get standard file paths for a frame with proper episode/frame structure.
+    
+    New structure:
+        episode_00000/
+            frame_000000/
+                rgb.png
+                depth.png
+                depth.npy
+                metadata.json
+                annotations/
+                    detection.json
+                    geometry.json
+                    metrology.json
+                    verification.json
+                    masks/
+                        crack_0000.png
     
     Args:
         output_dir: Base output directory
+        episode_id: Episode number
         frame_id: Frame number
         
     Returns:
         paths: Dictionary of file paths
     """
     output_dir = Path(output_dir)
-    frame_str = format_frame_id(frame_id)
+    episode_str = f"episode_{episode_id:05d}"
+    frame_str = f"frame_{frame_id:06d}"
+    
+    episode_dir = output_dir / episode_str
+    frame_dir = episode_dir / frame_str
+    annotations_dir = frame_dir / "annotations"
+    masks_dir = annotations_dir / "masks"
     
     paths = {
-        'rgb': str(output_dir / f"frame_{frame_str}_rgb.png"),
-        'depth_vis': str(output_dir / f"frame_{frame_str}_depth.png"),
-        'depth_npy': str(output_dir / f"frame_{frame_str}_depth.npy"),
-        'metadata': str(output_dir / f"frame_{frame_str}_metadata.json"),
-        'detection': str(output_dir / f"frame_{frame_str}_detection.json"),
-        'geometry': str(output_dir / f"frame_{frame_str}_geometry.json"),
-        'metrology': str(output_dir / f"frame_{frame_str}_metrology.json"),
-        'verification': str(output_dir / f"frame_{frame_str}_verification.json"),
-        'masks_dir': str(output_dir / "annotations" / "masks"),
+        'episode_dir': str(episode_dir),
+        'frame_dir': str(frame_dir),
+        'rgb': str(frame_dir / "rgb.png"),
+        'depth_vis': str(frame_dir / "depth.png"),
+        'depth_npy': str(frame_dir / "depth.npy"),
+        'metadata': str(frame_dir / "metadata.json"),
+        'detection': str(annotations_dir / "detection.json"),
+        'geometry': str(annotations_dir / "geometry.json"),
+        'metrology': str(annotations_dir / "metrology.json"),
+        'verification': str(annotations_dir / "verification.json"),
+        'masks_dir': str(masks_dir),
     }
     
     return paths
