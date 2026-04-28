@@ -1,115 +1,145 @@
 """
 Visualization script for ViDEC-Inspect dataset samples.
 
-Visualizes generated frames with annotations overlaid.
+Updated for the new episode/frame directory structure and standardized schema.
 
 Usage:
-    python scripts/visualize_sample.py --data_dir data/raw/v01 --frame_id 0
+    python scripts/visualize_sample.py --data_dir data/raw/v01_p2 --episode_id 0 --frame_id 0
+    python scripts/visualize_sample.py --data_dir data/raw/v01_p2 --episode_id 0 --frame_id 0 --save
 """
 
 import argparse
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import numpy as np
-import cv2
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend for server environments
 import matplotlib.pyplot as plt
+
+import cv2
+import numpy as np
 
 from src.utils.io import load_json, get_frame_paths
 from src.utils.vis import visualize_frame, depth_to_colormap
 
 
-def visualize_sample(data_dir: str, frame_id: int, save_output: bool = False):
+def visualize_sample(
+    data_dir: str,
+    episode_id: int,
+    frame_id: int,
+    save_output: bool = False,
+) -> None:
     """
     Visualize a single frame with annotations.
-    
+
     Args:
-        data_dir: Dataset directory
-        frame_id: Frame ID to visualize
+        data_dir: Dataset root directory
+        episode_id: Episode index
+        frame_id: Global frame id
         save_output: Whether to save visualization
     """
-    print(f"Visualizing frame {frame_id} from {data_dir}")
-    
-    # Get file paths
-    paths = get_frame_paths(data_dir, frame_id)
-    
-    # Load RGB image
-    rgb_path = Path(paths['rgb'])
+    print(f"Visualizing episode={episode_id}, frame={frame_id} from {data_dir}")
+
+    paths = get_frame_paths(data_dir, episode_id, frame_id)
+
+    rgb_path = Path(paths["rgb"])
     if not rgb_path.exists():
         print(f"Error: RGB image not found: {rgb_path}")
         return
-    
-    rgb_image = cv2.imread(str(rgb_path))
+
+    rgb_image = cv2.imread(str(rgb_path), cv2.IMREAD_COLOR)
     rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2RGB)
-    
-    # Load depth map
+
     depth_map = None
-    depth_npy_path = Path(paths['depth_npy'])
+    depth_npy_path = Path(paths["depth_npy"])
     if depth_npy_path.exists():
         depth_map = np.load(str(depth_npy_path))
-    
-    # Load annotations
-    detection_path = Path(paths['detection'])
-    if not detection_path.exists():
-        print(f"Error: Detection annotations not found: {detection_path}")
-        return
-    
+
+    detection_path = Path(paths["detection"])
+    geometry_path = Path(paths["geometry"])
+    metrology_path = Path(paths["metrology"])
+    verification_path = Path(paths["verification"])
+    metadata_path = Path(paths["metadata"])
+
+    required_files = [
+        detection_path,
+        geometry_path,
+        metrology_path,
+        verification_path,
+        metadata_path,
+    ]
+    for p in required_files:
+        if not p.exists():
+            print(f"Error: Missing file: {p}")
+            return
+
     detection_json = load_json(str(detection_path))
-    geometry_json = load_json(str(paths['geometry']))
-    metrology_json = load_json(str(paths['metrology']))
-    verification_json = load_json(str(paths['verification']))
-    metadata_json = load_json(str(paths['metadata']))
-    
-    # Reconstruct defect dictionaries for visualization
+    geometry_json = load_json(str(geometry_path))
+    metrology_json = load_json(str(metrology_path))
+    verification_json = load_json(str(verification_path))
+    metadata_json = load_json(str(metadata_path))
+
+    # Build lookup tables
+    geometry_by_id = {
+        item["defect_id"]: item for item in geometry_json.get("defects_geometry", [])
+    }
+    metrology_by_id = {
+        item["defect_id"]: item for item in metrology_json.get("defects_metrology", [])
+    }
+    verification_by_id = {
+        item["defect_id"]: item
+        for item in verification_json.get("defects_verification", [])
+    }
+
     defects = []
     negatives = []
-    
-    for defect_entry in detection_json['defects']:
-        # Load mask
-        mask_path = Path(data_dir) / defect_entry['mask_path']
-        if mask_path.exists():
-            mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
-        else:
-            mask = None
-        
-        # Find corresponding geometry and metrology
-        defect_id = defect_entry['defect_id']
-        
-        # Find geometry
+
+    frame_dir = Path(paths["frame_dir"])
+
+    for defect_entry in detection_json.get("defects", []):
+        defect_id = defect_entry["defect_id"]
+        class_name = defect_entry.get("class_name", defect_entry.get("class", "unknown"))
+
+        # Load mask relative to frame directory
+        mask = None
+        rel_mask_path = defect_entry.get("mask_path")
+        if rel_mask_path:
+            mask_path = frame_dir / rel_mask_path
+            if mask_path.exists():
+                mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+
+        geom = geometry_by_id.get(defect_id, {})
+        metro = metrology_by_id.get(defect_id, {})
+        verif = verification_by_id.get(defect_id, {})
+
         skeleton_px = None
-        for geom in geometry_json['defects_geometry']:
-            if geom['defect_id'] == defect_id:
-                if 'skeleton' in geom and geom['skeleton']:
-                    skeleton_px = geom['skeleton']['coordinates_px']
-                break
-        
-        # Find metrology
-        severity = "unknown"
-        for metro in metrology_json['defects_metrology']:
-            if metro['defect_id'] == defect_id:
-                severity = metro['severity']
-                break
-        
+        if geom.get("skeleton"):
+            skeleton_px = geom["skeleton"].get("coordinates_px")
+
         defect = {
-            'defect_id': defect_id,
-            'class': defect_entry['class'],
-            'bbox_xyxy': defect_entry['bbox_xyxy'],
-            'mask': mask,
-            'skeleton_px': skeleton_px,
-            'severity': severity,
-            'difficulty': 'medium',  # Not stored in detection JSON
+            "defect_id": defect_id,
+            "class": class_name,
+            "bbox_xyxy": defect_entry["bbox_xyxy"],
+            "mask": mask,
+            "skeleton_px": skeleton_px,
+            "severity": metro.get("severity", "unknown"),
+            "verification_status": verif.get("verification_status", "unknown"),
+            "ambiguity_score": verif.get("ambiguity_score", None),
+            "difficulty": verif.get("verification_difficulty", "unknown"),
         }
         defects.append(defect)
-    
-    for negative_entry in detection_json['hard_negatives']:
-        negatives.append({
-            'negative_id': negative_entry['negative_id'],
-            'type': negative_entry['type'],
-            'bbox_xyxy': negative_entry['bbox_xyxy'],
-        })
-    
-    # Create visualization
+
+    for negative_entry in detection_json.get("hard_negatives", []):
+        negatives.append(
+            {
+                "negative_id": negative_entry["negative_id"],
+                "type": negative_entry["type"],
+                "bbox_xyxy": negative_entry["bbox_xyxy"],
+            }
+        )
+
     vis_image = visualize_frame(
         rgb_image=rgb_image,
         depth_map=depth_map,
@@ -118,88 +148,112 @@ def visualize_sample(data_dir: str, frame_id: int, save_output: bool = False):
         show_masks=True,
         show_skeletons=True,
     )
-    
-    # Display using matplotlib
+
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-    
-    # Original image
+
     axes[0].imshow(rgb_image)
     axes[0].set_title("Original RGB")
-    axes[0].axis('off')
-    
-    # Depth map
+    axes[0].axis("off")
+
     if depth_map is not None:
         depth_vis = depth_to_colormap(depth_map)
         axes[1].imshow(depth_vis)
         axes[1].set_title("Depth Map")
     else:
-        axes[1].text(0.5, 0.5, "No depth map", ha='center', va='center')
+        axes[1].text(0.5, 0.5, "No depth map", ha="center", va="center")
         axes[1].set_title("Depth Map")
-    axes[1].axis('off')
-    
-    # Annotated image
+    axes[1].axis("off")
+
     axes[2].imshow(vis_image)
     axes[2].set_title("Annotated")
-    axes[2].axis('off')
-    
-    plt.suptitle(f"Frame {frame_id} - Episode: {metadata_json['episode_id']}", fontsize=14)
+    axes[2].axis("off")
+
+    episode_name = metadata_json.get("episode_id", f"episode_{episode_id:05d}")
+    plt.suptitle(
+        f"Episode {episode_name} | Frame {frame_id}",
+        fontsize=14,
+    )
     plt.tight_layout()
-    
-    # Save if requested
+
     if save_output:
-        output_path = Path(data_dir) / "preview" / f"frame_{frame_id:06d}_preview.png"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        preview_dir = Path(data_dir) / "preview" / f"episode_{episode_id:05d}"
+        preview_dir.mkdir(parents=True, exist_ok=True)
+        output_path = preview_dir / f"frame_{frame_id:06d}_preview.png"
+        plt.savefig(output_path, dpi=150, bbox_inches="tight")
         print(f"Saved visualization to: {output_path}")
-    
-    plt.show()
-    
-    # Print summary
-    print("\n" + "=" * 60)
-    print(f"Frame {frame_id} Summary")
-    print("=" * 60)
-    print(f"Episode ID: {metadata_json['episode_id']}")
-    print(f"Timestamp: {metadata_json['timestamp_sec']:.2f}s")
+    else:
+        # For interactive display (requires X server)
+        try:
+            plt.show()
+        except Exception as e:
+            print(f"Warning: Could not display plot interactively: {e}")
+            print("Use --save flag to save output instead.")
+
+    print("\n" + "=" * 72)
+    print(f"Episode {episode_name} | Frame {frame_id}")
+    print("=" * 72)
+    print(f"Benchmark: {metadata_json.get('benchmark_name', 'unknown')} "
+          f"v{metadata_json.get('benchmark_version', 'unknown')}")
+    print(f"Scene ID: {metadata_json.get('scene_id', 'unknown')}")
+    print(f"Timestamp: {metadata_json.get('timestamp_sec', 0.0):.2f}s")
     print(f"Number of defects: {len(defects)}")
+
     for defect in defects:
-        print(f"  - {defect['class']}: {defect['defect_id']} ({defect['severity']})")
+        ambiguity = defect["ambiguity_score"]
+        ambiguity_str = f"{ambiguity:.2f}" if ambiguity is not None else "N/A"
+        print(
+            f"  - {defect['class']}: {defect['defect_id']} | "
+            f"severity={defect['severity']} | "
+            f"verification={defect['verification_status']} | "
+            f"ambiguity={ambiguity_str}"
+        )
+
     print(f"Number of hard negatives: {len(negatives)}")
     for negative in negatives:
         print(f"  - {negative['type']}: {negative['negative_id']}")
-    print(f"Environment: {metadata_json['environment']['water_clarity']}, " +
-          f"{metadata_json['environment']['lighting']} lighting")
-    print("=" * 60)
+
+    environment = metadata_json.get("environment", {})
+    print(
+        "Environment: "
+        f"{environment.get('water_clarity', 'unknown')}, "
+        f"{environment.get('lighting', 'unknown')} lighting"
+    )
+    print("=" * 72)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Visualize ViDEC-Inspect dataset samples"
     )
-    
     parser.add_argument(
-        '--data_dir',
+        "--data_dir",
         type=str,
         required=True,
-        help='Dataset directory path'
+        help="Dataset root directory",
     )
-    
     parser.add_argument(
-        '--frame_id',
+        "--episode_id",
         type=int,
-        default=0,
-        help='Frame ID to visualize (default: 0)'
+        required=True,
+        help="Episode index, e.g. 0",
     )
-    
     parser.add_argument(
-        '--save',
-        action='store_true',
-        help='Save visualization to file'
+        "--frame_id",
+        type=int,
+        required=True,
+        help="Global frame id, e.g. 0",
     )
-    
+    parser.add_argument(
+        "--save",
+        action="store_true",
+        help="Save visualization to file",
+    )
+
     args = parser.parse_args()
-    
+
     visualize_sample(
         data_dir=args.data_dir,
+        episode_id=args.episode_id,
         frame_id=args.frame_id,
         save_output=args.save,
     )
