@@ -136,6 +136,13 @@ class HoloOceanFlatWallSource(FrameSource):
         )
 
     def close(self) -> None:
-        if self.env is not None:
-            self.env.close()
+        if self.env is None:
+            return
+
+        try:
+            if hasattr(self.env, "close") and callable(self.env.close):
+                self.env.close()
+            elif hasattr(self.env, "__exit__") and callable(self.env.__exit__):
+                self.env.__exit__(None, None, None)
+        finally:
             self.env = None
