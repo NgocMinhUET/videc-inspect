@@ -13,6 +13,7 @@ import cv2
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from scipy.spatial import ConvexHull
+from ..utils.config import benchmark_config
 
 
 class SpallGenerator:
@@ -80,13 +81,8 @@ class SpallGenerator:
         
         depth_mm = np.random.uniform(min_depth, max_depth)
         
-        # Determine actual severity based on depth
-        if depth_mm < 5.0:
-            severity = "minor"
-        elif depth_mm < 20.0:
-            severity = "moderate"
-        else:
-            severity = "severe"
+        # Classify severity using centralized config
+        severity = benchmark_config.classify_severity("spall", depth_mm)
         
         # Generate contour (irregular polygon)
         contour_px = self._generate_contour(
@@ -120,9 +116,12 @@ class SpallGenerator:
         self._defect_counter += 1
         
         # Build defect dictionary
+        # NOTE: Removed verification fields (minimal_evidence_level, requires_closeup)
+        # as these should be determined by verification layer based on config
         defect = {
             'defect_id': defect_id,
-            'class': 'spalling',
+            'class_name': 'spall',  # Standardized to "spall" not "spalling"
+            'class': 'spall',  # Keep for backward compatibility during transition
             'severity': severity,
             'difficulty': difficulty,
             
@@ -141,10 +140,6 @@ class SpallGenerator:
             'area_m2': float(actual_area_m2),
             'depth_mm': float(depth_mm),
             'volume_cm3': float(volume_cm3),
-            
-            # Verification layer
-            'minimal_evidence_level': 'roi_plus_area',
-            'requires_closeup': False if difficulty == "easy" else True,
         }
         
         return defect

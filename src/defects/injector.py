@@ -21,6 +21,33 @@ class DefectInjector:
         self.spall_gen = SpallGenerator()
         self.negative_gen = HardNegativeGenerator()
     
+    def _generate_with_retries(self, target_count, generator_fn, existing_defects, max_attempts_per_item=25):
+        """
+        Generate defects with retry logic to handle overlaps.
+        
+        Args:
+            target_count: Number of defects to generate
+            generator_fn: Function that generates one defect
+            existing_defects: List of already generated defects to avoid
+            max_attempts_per_item: Maximum retries per item
+            
+        Returns:
+            items: List of successfully generated defects
+            attempts: Total number of attempts made
+        """
+        items = []
+        attempts = 0
+        max_attempts = max_attempts_per_item * max(1, target_count)
+        
+        while len(items) < target_count and attempts < max_attempts:
+            candidate = generator_fn()
+            attempts += 1
+            
+            if not self._check_overlap(candidate, existing_defects + items):
+                items.append(candidate)
+        
+        return items, attempts
+    
     def generate_scene(
         self,
         image_size: Tuple[int, int],
@@ -31,7 +58,7 @@ class DefectInjector:
         difficulty_dist: Optional[Dict[str, float]] = None,
     ) -> Dict:
         """
-        Generate a complete scene with defects and hard negatives.
+        Generate a complete scene with defects and hard negatives using retry logic.
         
         Args:
             image_size: (width, height) in pixels
@@ -42,63 +69,65 @@ class DefectInjector:
             difficulty_dist: Distribution of difficulties, e.g. {"easy": 0.3, "medium": 0.5, "hard": 0.2}
             
         Returns:
-            scene_dict: Dictionary containing all defects and negatives
+            scene_dict: Dictionary containing all defects and negatives with stats
         """
         if difficulty_dist is None:
             difficulty_dist = {"easy": 0.2, "medium": 0.6, "hard": 0.2}
         
-        # Generate defects
-        cracks = []
-        spalls = []
-        negatives = []
-        
-        # Generate cracks
-        for i in range(num_cracks):
-            difficulty = self._sample_difficulty(difficulty_dist)
-            crack = self.crack_gen.generate(
+        # Generate cracks with retry logic
+        cracks, crack_attempts = self._generate_with_retries(
+            target_count=num_cracks,
+            generator_fn=lambda: self.crack_gen.generate(
                 image_size=image_size,
                 pixel_to_meter=pixel_to_meter,
-                difficulty=difficulty
-            )
-            
-            # Check for overlap with existing defects
-            if not self._check_overlap(crack, cracks + spalls):
-                cracks.append(crack)
+                difficulty=self._sample_difficulty(difficulty_dist)
+            ),
+            existing_defects=[],
+        )
         
-        # Generate spalls
-        for i in range(num_spalls):
-            difficulty = self._sample_difficulty(difficulty_dist)
-            spall = self.spall_gen.generate(
+        # Generate spalls with retry logic
+        spalls, spall_attempts = self._generate_with_retries(
+            target_count=num_spalls,
+            generator_fn=lambda: self.spall_gen.generate(
                 image_size=image_size,
                 pixel_to_meter=pixel_to_meter,
-                difficulty=difficulty
-            )
-            
-            # Check for overlap
-            if not self._check_overlap(spall, cracks + spalls):
-                spalls.append(spall)
+                difficulty=self._sample_difficulty(difficulty_dist)
+            ),
+            existing_defects=cracks,
+        )
         
-        # Generate hard negatives
-        for i in range(num_negatives):
-            difficulty = self._sample_difficulty(difficulty_dist)
-            negative = self.negative_gen.generate(
+        # Generate hard negatives with retry logic
+        negatives, negative_attempts = self._generate_with_retries(
+            target_count=num_negatives,
+            generator_fn=lambda: self.negative_gen.generate(
                 image_size=image_size,
                 pixel_to_meter=pixel_to_meter,
-                difficulty=difficulty
-            )
-            
-            # Check for overlap with defects (hard negatives can overlap with each other)
-            if not self._check_overlap(negative, cracks + spalls):
-                negatives.append(negative)
+                difficulty=self._sample_difficulty(difficulty_dist)
+            ),
+            existing_defects=cracks + spalls,
+        )
         
         scene = {
+            # Requested counts
+            'requested_num_cracks': num_cracks,
+            'requested_num_spalls': num_spalls,
+            'requested_num_negatives': num_negatives,
+            
+            # Actual counts
             'num_defects': len(cracks) + len(spalls),
             'num_cracks': len(cracks),
             'num_spalls': len(spalls),
             'num_negatives': len(negatives),
+            
+            # Defects
             'cracks': cracks,
             'spalls': spalls,
             'negatives': negatives,
+            
+            # Generation stats
+            'crack_attempts': crack_attempts,
+            'spall_attempts': spall_attempts,
+            'negative_attempts': negative_attempts,
         }
         
         return scene

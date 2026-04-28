@@ -281,6 +281,8 @@ def generate_episode(
         # Layer 2: Geometry
         geometry_json = write_geometry_json(
             frame_id=frame_id,
+            episode_id=episode_str,
+            scene_id=scene_id,
             cracks=scene['cracks'],
             spalls=scene['spalls'],
         )
@@ -289,6 +291,8 @@ def generate_episode(
         # Layer 3: Metrology
         metrology_json = write_metrology_json(
             frame_id=frame_id,
+            episode_id=episode_str,
+            scene_id=scene_id,
             cracks=scene['cracks'],
             spalls=scene['spalls'],
             pixel_to_meter=pixel_to_meter_current,
@@ -305,6 +309,8 @@ def generate_episode(
         
         verification_json = write_verification_json(
             frame_id=frame_id,
+            episode_id=episode_str,
+            scene_id=scene_id,
             cracks=scene['cracks'],
             spalls=scene['spalls'],
             negatives=scene['negatives'],
@@ -350,10 +356,22 @@ def generate_episode(
     print(f"[Episode {episode_id}] ✓ Complete")
 
 
-def generate_splits(num_episodes: int, train_ratio=0.7, val_ratio=0.15):
-    """Generate train/val/test splits."""
+def generate_splits(num_episodes: int, seed: int, train_ratio=0.7, val_ratio=0.15):
+    """
+    Generate reproducible train/val/test splits.
+    
+    Args:
+        num_episodes: Total number of episodes
+        seed: Random seed for reproducibility
+        train_ratio: Fraction for training
+        val_ratio: Fraction for validation
+        
+    Returns:
+        splits: Dictionary with train/val/test episode IDs
+    """
+    rng = np.random.default_rng(seed)
     indices = np.arange(num_episodes)
-    np.random.shuffle(indices)
+    rng.shuffle(indices)
     
     n_train = int(num_episodes * train_ratio)
     n_val = int(num_episodes * val_ratio)
@@ -421,7 +439,7 @@ def generate_dataset(
         )
     
     # Generate splits
-    splits = generate_splits(num_episodes, train_ratio=0.7, val_ratio=0.15)
+    splits = generate_splits(num_episodes, seed=seed, train_ratio=0.7, val_ratio=0.15)
     
     splits_dir = Path(output_dir) / "splits"
     ensure_dir(str(splits_dir))

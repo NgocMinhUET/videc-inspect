@@ -15,6 +15,7 @@ from typing import Dict, List, Tuple, Optional
 from scipy.interpolate import interp1d
 from skimage.draw import line_aa
 import cv2
+from ..utils.config import benchmark_config
 
 
 class CrackGenerator:
@@ -82,13 +83,8 @@ class CrackGenerator:
         
         mean_width_mm = np.random.uniform(min_width, max_width)
         
-        # Determine actual severity based on width
-        if mean_width_mm < 1.0:
-            severity = "minor"
-        elif mean_width_mm < 4.0:
-            severity = "moderate"
-        else:
-            severity = "severe"
+        # Classify severity using centralized config
+        severity = benchmark_config.classify_severity("crack", mean_width_mm)
         
         # Generate skeleton (polyline)
         skeleton_px = self._generate_skeleton(
@@ -123,9 +119,12 @@ class CrackGenerator:
         self._defect_counter += 1
         
         # Build defect dictionary
+        # NOTE: Removed verification fields (minimal_evidence_level, requires_closeup)
+        # as these should be determined by verification layer based on config
         defect = {
             'defect_id': defect_id,
-            'class': 'crack',
+            'class_name': 'crack',  # Standardized field name
+            'class': 'crack',  # Keep for backward compatibility during transition
             'severity': severity,
             'difficulty': difficulty,
             
@@ -144,10 +143,6 @@ class CrackGenerator:
             'mean_width_mm': float(mean_width_mm),
             'max_width_mm': float(np.max(width_profile_mm)),
             'width_std_mm': float(np.std(width_profile_mm)),
-            
-            # Verification layer
-            'minimal_evidence_level': 'roi_plus_skeleton',
-            'requires_closeup': True,
         }
         
         return defect

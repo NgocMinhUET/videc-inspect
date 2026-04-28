@@ -17,6 +17,84 @@ import cv2
 from ..utils.config import benchmark_config
 
 
+def _annotation_header(annotation_layer: str, frame_id: int, episode_id: str, scene_id: str) -> Dict:
+    """
+    Generate standardized annotation header for all layers.
+    
+    Args:
+        annotation_layer: Layer name (detection, geometry, metrology, verification, metadata)
+        frame_id: Frame number
+        episode_id: Episode identifier
+        scene_id: Scene identifier
+        
+    Returns:
+        header: Dictionary with benchmark metadata
+    """
+    return {
+        "benchmark_name": benchmark_config.benchmark_name,
+        "benchmark_version": benchmark_config.benchmark_version,
+        "annotation_layer": annotation_layer,
+        "scene_family": "flat_wall",
+        "scene_id": scene_id,
+        "episode_id": episode_id,
+        "frame_id": frame_id,
+    }
+
+
+def _compute_ambiguity_score(defect_class: str, difficulty: str, image_quality: Dict) -> float:
+    """
+    Compute ambiguity score for verification layer.
+    
+    Args:
+        defect_class: "crack" or "spall"
+        difficulty: "easy", "medium", or "hard"
+        image_quality: Quality metrics dictionary
+        
+    Returns:
+        ambiguity_score: 0.0 (clear) to 1.0 (very ambiguous)
+    """
+    score = 0.10  # Base ambiguity
+    
+    # Difficulty contribution
+    if difficulty == "medium":
+        score += 0.18
+    elif difficulty == "hard":
+        score += 0.36
+    
+    # Image quality contribution
+    if image_quality.get("sharpness_score", 1.0) < 0.70:
+        score += 0.12
+    if image_quality.get("contrast_score", 1.0) < 0.65:
+        score += 0.16
+    if image_quality.get("valid_ratio", 1.0) < 0.98:
+        score += 0.10
+    
+    # Depth quality for spalls
+    if defect_class == "spall" and image_quality.get("depth_consistency_score", 1.0) < 0.90:
+        score += 0.16
+    
+    return min(1.0, score)
+
+
+def _verification_status(ambiguity_score: float, requires_closeup: bool) -> str:
+    """
+    Map ambiguity score to verification status.
+    
+    Args:
+        ambiguity_score: Computed ambiguity (0-1)
+        requires_closeup: Whether closeup would help
+        
+    Returns:
+        status: "confirmed", "uncertain", or "needs_closeup"
+    """
+    if ambiguity_score < 0.35:
+        return "confirmed"
+    elif ambiguity_score < 0.65:
+        return "uncertain"
+    else:
+        return "needs_closeup" if requires_closeup else "uncertain"
+
+
 def write_detection_json(
     frame_id: int,
     episode_id: str,
@@ -124,6 +202,8 @@ def write_detection_json(
 
 def write_geometry_json(
     frame_id: int,
+    episode_id: str,
+    scene_id: str,
     cracks: List[Dict],
     spalls: List[Dict],
 ) -> Dict:
@@ -132,6 +212,8 @@ def write_geometry_json(
     
     Args:
         frame_id: Frame number
+        episode_id: Episode identifier
+        scene_id: Scene identifier
         cracks: List of crack defects
         spalls: List of spall defects
         
@@ -176,12 +258,9 @@ def write_geometry_json(
         }
         defects_geometry.append(geometry_entry)
     
-    # Add benchmark metadata
+    # Use standardized header
     geometry_dict = {
-        "benchmark_name": benchmark_config.benchmark_name,
-        "benchmark_version": benchmark_config.benchmark_version,
-        "annotation_layer": "geometry",
-        "frame_id": frame_id,
+        **_annotation_header("geometry", frame_id, episode_id, scene_id),
         "defects_geometry": defects_geometry,
     }
     
@@ -190,6 +269,8 @@ def write_geometry_json(
 
 def write_metrology_json(
     frame_id: int,
+    episode_id: str,
+    scene_id: str,
     cracks: List[Dict],
     spalls: List[Dict],
     pixel_to_meter: float,
@@ -280,11 +361,9 @@ def write_metrology_json(
         }
         defects_metrology.append(metrology_entry)
     
+    # Use standardized header
     metrology_dict = {
-        "benchmark_name": benchmark_config.benchmark_name,
-        "benchmark_version": benchmark_config.benchmark_version,
-        "annotation_layer": "metrology",
-        "frame_id": frame_id,
+        **_annotation_header("metrology", frame_id, episode_id, scene_id),
         "camera_parameters": camera_params,
         "mean_distance_to_wall_m": float(mean_distance_to_wall),
         "pixel_to_meter_ratio": float(pixel_to_meter),
@@ -296,16 +375,20 @@ def write_metrology_json(
 
 def write_verification_json(
     frame_id: int,
+    episode_id: str,
+    scene_id: str,
     cracks: List[Dict],
     spalls: List[Dict],
     negatives: List[Dict],
     image_quality: Optional[Dict] = None,
 ) -> Dict:
     """
-    Write verification layer JSON with standardized schema.
+    Write verification layer JSON with dynamic verification logic.
     
     Args:
         frame_id: Frame number
+        episode_id: Episode identifier
+        scene_id: Scene identifier
         cracks: List of crack defects
         spalls: List of spall defects
         negatives: List of hard negatives
@@ -328,6 +411,11 @@ def write_verification_json(
         # Get verification requirements from config
         verification_reqs = benchmark_config.get_verification_requirements('crack')
         
+        # Compute ambiguity and verification status dynamically
+        ambiguity_score = _compute_ambiguity_score("crack", crack['difficulty'], image_quality)
+        requires_closeup = verification_reqs.get('closeup_beneficial', True)
+        verification_status = _verification_status(ambiguity_score, requires_closeup)
+        
         verification_entry = {
             "defect_id": crack['defect_id'],
             "class_name": "crack",  # Standardized
@@ -341,16 +429,17 @@ def write_verification_json(
                 "has_skeleton": True,
                 "has_width_profile": True,
             },
-            "verification_status": "confirmed",  # TODO P2: Make dynamic based on quality
-            "requires_closeup": verification_reqs.get('closeup_beneficial', True),
+            "verification_status": verification_status,  # Dynamic based on ambiguity
+            "ambiguity_score": float(ambiguity_score),
+            "requires_closeup": requires_closeup,
             "closeup_benefit": {
                 "expected_improvement": "width_measurement_refinement",
                 "priority": "medium" if crack['severity'] in ["moderate", "severe"] else "low",
             },
-            "ambiguity_zone": crack['difficulty'] == "hard",
+            "ambiguity_zone": ambiguity_score > 0.5,
             "ambiguity_reason": "low_contrast" if crack['difficulty'] == "hard" else None,
             "confusable_with": [],
-            "ground_truth_confidence": 1.0,  # TODO P2: Make dynamic
+            "ground_truth_confidence": max(0.5, 1.0 - ambiguity_score * 0.5),  # Dynamic confidence
         }
         defects_verification.append(verification_entry)
     
@@ -358,6 +447,11 @@ def write_verification_json(
     for spall in spalls:
         # Get verification requirements from config
         verification_reqs = benchmark_config.get_verification_requirements('spall')
+        
+        # Compute ambiguity and verification status dynamically
+        ambiguity_score = _compute_ambiguity_score("spall", spall['difficulty'], image_quality)
+        requires_closeup = verification_reqs.get('closeup_beneficial', True)
+        verification_status = _verification_status(ambiguity_score, requires_closeup)
         
         verification_entry = {
             "defect_id": spall['defect_id'],
@@ -372,16 +466,17 @@ def write_verification_json(
                 "has_depth": True,
                 "has_volume": True,
             },
-            "verification_status": "confirmed",  # TODO P2: Make dynamic
-            "requires_closeup": verification_reqs.get('closeup_beneficial', False),
+            "verification_status": verification_status,  # Dynamic based on ambiguity
+            "ambiguity_score": float(ambiguity_score),
+            "requires_closeup": requires_closeup,
             "closeup_benefit": {
                 "expected_improvement": "depth_measurement_refinement",
                 "priority": "low" if spall['difficulty'] == "easy" else "medium",
             },
-            "ambiguity_zone": spall['difficulty'] == "hard",
+            "ambiguity_zone": ambiguity_score > 0.5,
             "ambiguity_reason": "low_contrast" if spall['difficulty'] == "hard" else None,
             "confusable_with": [],
-            "ground_truth_confidence": 1.0,  # TODO P2: Make dynamic
+            "ground_truth_confidence": max(0.5, 1.0 - ambiguity_score * 0.5),  # Dynamic confidence
         }
         defects_verification.append(verification_entry)
     
@@ -397,12 +492,9 @@ def write_verification_json(
         }
         negatives_verification.append(verification_entry)
     
-    # Add benchmark metadata
+    # Use standardized header
     verification_dict = {
-        "benchmark_name": benchmark_config.benchmark_name,
-        "benchmark_version": benchmark_config.benchmark_version,
-        "annotation_layer": "verification",
-        "frame_id": frame_id,
+        **_annotation_header("verification", frame_id, episode_id, scene_id),
         "defects_verification": defects_verification,
         "hard_negatives_verification": negatives_verification,
     }
@@ -438,27 +530,13 @@ def write_metadata_json(
     Returns:
         metadata_dict: Metadata dictionary
     """
+    # Use standardized header
     metadata_dict = {
-        # Benchmark metadata
-        "benchmark_name": benchmark_config.benchmark_name,
-        "benchmark_version": benchmark_config.benchmark_version,
-        "annotation_layer": "metadata",
-        
-        # Scene and frame identification
-        "scene_family": "flat_wall",
-        "scene_id": scene_id,
-        "episode_id": episode_id,
-        "frame_id": frame_id,
+        **_annotation_header("metadata", frame_id, episode_id, scene_id),
         "timestamp_sec": float(timestamp_sec),
-        
-        # Robot state
         "robot_state": robot_state,
         "camera_state": camera_state,
-        
-        # Environment
         "environment": environment,
-        
-        # Defects in view
         "defect_ids_in_view": defect_ids,
         "negative_ids_in_view": negative_ids,
     }
