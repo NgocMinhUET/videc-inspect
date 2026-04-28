@@ -1,0 +1,67 @@
+# Crack defect configuration for ViDEC-Inspect v0.1
+
+class: crack
+description: Linear or branching cracks in concrete surface
+
+# Generation parameters
+generation:
+  min_length_m: 0.05  # 5cm minimum
+  max_length_m: 0.50  # 50cm maximum
+  
+  min_width_mm: 0.5
+  max_width_mm: 5.0
+  
+  # Width variation along crack
+  width_variation:
+    type: gaussian  # gaussian, linear, random
+    std_ratio: 0.15  # std/mean ratio
+  
+  # Crack topology
+  topology:
+    branching_probability: 0.2
+    max_branches: 3
+    branch_angle_deg: [30, 60]
+  
+  # Appearance
+  color_shift:
+    darker_ratio: 0.3  # Cracks appear darker
+    noise_level: 0.1
+
+# Severity classification
+severity:
+  minor:
+    max_width_mm: 1.0
+  moderate:
+    min_width_mm: 1.0
+    max_width_mm: 4.0
+  severe:
+    min_width_mm: 4.0
+
+# Difficulty factors
+difficulty:
+  easy:
+    min_length_m: 0.20
+    min_width_mm: 2.0
+    contrast_ratio: 0.4
+  medium:
+    min_length_m: 0.10
+    min_width_mm: 1.0
+    contrast_ratio: 0.25
+  hard:
+    min_length_m: 0.05
+    min_width_mm: 0.5
+    contrast_ratio: 0.15
+    occlusion_ratio: [0.1, 0.3]
+
+# Verification requirements
+verification:
+  minimal_evidence:
+    roi: true
+    mask: true
+    skeleton: true
+    width_profile: true
+  
+  closeup_beneficial: true
+  closeup_improves:
+    - width_measurement
+    - branching_topology

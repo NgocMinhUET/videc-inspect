@@ -1,0 +1,112 @@
+# Environmental condition matrix for ViDEC-Inspect v0.1
+
+# Water clarity conditions
+water_clarity:
+  clear:
+    visibility_m: [12, 15]
+    turbidity_ntu: [0, 5]
+    particle_density: low
+  
+  moderate:
+    visibility_m: [6, 10]
+    turbidity_ntu: [5, 15]
+    particle_density: medium
+  
+  murky:
+    visibility_m: [2, 5]
+    turbidity_ntu: [15, 30]
+    particle_density: high
+
+# Lighting conditions
+lighting:
+  bright:
+    ambient_lux: [500, 1000]
+    artificial_light: true
+    light_position: front
+    shadows: minimal
+  
+  normal:
+    ambient_lux: [200, 500]
+    artificial_light: true
+    light_position: front
+    shadows: moderate
+  
+  low:
+    ambient_lux: [50, 200]
+    artificial_light: true
+    light_position: front
+    shadows: strong
+  
+  very_low:
+    ambient_lux: [10, 50]
+    artificial_light: true
+    light_position: front_side
+    shadows: very_strong
+
+# Standoff distance (robot to wall)
+standoff_distance:
+  close:
+    distance_m: [0.8, 1.2]
+    use_case: closeup_inspection
+    coverage_per_frame: small
+  
+  normal:
+    distance_m: [1.2, 2.0]
+    use_case: survey_pass
+    coverage_per_frame: medium
+  
+  far:
+    distance_m: [2.0, 3.0]
+    use_case: rapid_survey
+    coverage_per_frame: large
+
+# View angle (relative to wall normal)
+view_angle:
+  frontal:
+    angle_deg: [0, 10]
+    distortion: minimal
+  
+  oblique_mild:
+    angle_deg: [10, 25]
+    distortion: mild
+  
+  oblique_strong:
+    angle_deg: [25, 45]
+    distortion: strong
+
+# Combined condition sets for v0.1
+# Start with 3 baseline sets, expand later
+baseline_conditions:
+  set_A_nominal:
+    water_clarity: clear
+    lighting: normal
+    standoff_distance: normal
+    view_angle: frontal
+    description: "Ideal survey conditions"
+  
+  set_B_challenging:
+    water_clarity: moderate
+    lighting: low
+    standoff_distance: normal
+    view_angle: oblique_mild
+    description: "Typical operational conditions"
+  
+  set_C_difficult:
+    water_clarity: murky
+    lighting: very_low
+    standoff_distance: far
+    view_angle: oblique_strong
+    description: "Worst-case conditions for stress testing"
+
+# Condition variation for dataset diversity
+variation_strategy:
+  type: factorial_sampling
+  factors:
+    - water_clarity
+    - lighting
+    - standoff_distance
+    - view_angle
+  
+  # Start with baseline 3, then expand to 9-12 combinations
+  num_combinations_v01: 3
+  num_combinations_v02: 12

@@ -1,0 +1,66 @@
+# Spalling defect configuration for ViDEC-Inspect v0.1
+
+class: spalling
+description: Concrete surface delamination with depth
+
+# Generation parameters
+generation:
+  min_area_m2: 0.001  # 10cm x 10cm
+  max_area_m2: 0.05   # ~22cm x 22cm
+  
+  min_depth_mm: 2.0
+  max_depth_mm: 25.0
+  
+  # Shape
+  shape:
+    type: irregular_polygon
+    num_vertices: [5, 12]
+    irregularity: 0.3  # 0=circle, 1=very irregular
+  
+  # Appearance
+  texture:
+    roughness: 0.7
+    exposed_aggregate: true
+  
+  color_shift:
+    lighter_ratio: 0.2  # Exposed concrete is lighter
+    noise_level: 0.15
+
+# Severity classification
+severity:
+  minor:
+    max_depth_mm: 5.0
+  moderate:
+    min_depth_mm: 5.0
+    max_depth_mm: 20.0
+  severe:
+    min_depth_mm: 20.0
+
+# Difficulty factors
+difficulty:
+  easy:
+    min_area_m2: 0.01
+    min_depth_mm: 10.0
+    contrast_ratio: 0.35
+  medium:
+    min_area_m2: 0.005
+    min_depth_mm: 5.0
+    contrast_ratio: 0.20
+  hard:
+    min_area_m2: 0.002
+    min_depth_mm: 2.0
+    contrast_ratio: 0.12
+
+# Verification requirements
+verification:
+  minimal_evidence:
+    roi: true
+    mask: true
+    depth_map: true
+    area: true
+  
+  closeup_beneficial: true
+  closeup_improves:
+    - depth_measurement
+    - volume_estimation
+    - texture_detail

@@ -1,0 +1,96 @@
+# Hard negative configuration for ViDEC-Inspect v0.1
+
+class: hard_negative
+description: Non-defect patterns designed to test false positive rates
+
+# Types of hard negatives
+types:
+  stain:
+    description: Dark stains that look like cracks
+    generation:
+      shape: elongated_blob
+      aspect_ratio: [3.0, 8.0]
+      width_m: [0.01, 0.05]
+      length_m: [0.08, 0.30]
+      color_shift:
+        darker_ratio: 0.25
+        fuzzy_edges: true
+    confusable_with: crack
+    distinguishing_feature: no_skeleton_topology
+    
+  shadow:
+    description: Shadows from surface irregularities
+    generation:
+      shape: irregular_polygon
+      area_m2: [0.005, 0.02]
+      gradient: true  # Gradual intensity change
+      color_shift:
+        darker_ratio: 0.30
+        depth_inconsistent: true
+    confusable_with: spalling
+    distinguishing_feature: depth_map_inconsistency
+    
+  texture_variation:
+    description: Natural concrete texture variations
+    generation:
+      shape: irregular_blob
+      area_m2: [0.003, 0.015]
+      noise_pattern: perlin
+      color_shift:
+        lighter_ratio: 0.15
+        no_depth_change: true
+    confusable_with: spalling
+    distinguishing_feature: no_depth_change
+    
+  biological_growth:
+    description: Algae or marine growth
+    generation:
+      shape: organic_blob
+      area_m2: [0.002, 0.01]
+      texture: fuzzy
+      color_shift:
+        greenish_hue: 0.2
+        raised_surface: 0.001  # 1mm raised
+    confusable_with: spalling
+    distinguishing_feature: color_and_texture
+    
+  surface_artifact:
+    description: Paint drips, repairs, or surface treatments
+    generation:
+      shape: drip_or_patch
+      area_m2: [0.001, 0.008]
+      color_shift:
+        different_hue: true
+        smooth_texture: true
+    confusable_with: spalling
+    distinguishing_feature: smooth_uniform_appearance
+
+# Distribution in dataset
+distribution:
+  stain: 0.35
+  shadow: 0.25
+  texture_variation: 0.20
+  biological_growth: 0.10
+  surface_artifact: 0.10
+
+# Difficulty levels
+difficulty:
+  easy:
+    contrast_ratio: 0.5  # Very different from real defects
+    distinguishing_features_clear: true
+  medium:
+    contrast_ratio: 0.3
+    partial_similarity: true
+  hard:
+    contrast_ratio: 0.15  # Very similar to real defects
+    requires_multiple_cues: true
+
+# Verification labels
+verification:
+  should_reject: true
+  rejection_cue:
+    stain: missing_structural_topology
+    shadow: inconsistent_depth
+    texture_variation: no_geometric_feature
+    biological_growth: color_and_texture_mismatch
+    surface_artifact: too_uniform_and_smooth

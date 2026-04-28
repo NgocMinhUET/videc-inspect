@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Data
+data/raw/**
+data/processed/**
+*.npy
+*.h5
+*.hdf5
+
+# Annotations (except example)
+annotations/masks/**
+
+# Outputs
+outputs/
+results/
+logs/
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# HoloOcean
+holoocean_worlds/
+
+# Experiment tracking
+mlruns/
+wandb/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Keep directory structure
+!data/.gitkeep
+!data/raw/.gitkeep
+!data/annotations/.gitkeep
+!data/splits/.gitkeep
+!data/preview/.gitkeep
