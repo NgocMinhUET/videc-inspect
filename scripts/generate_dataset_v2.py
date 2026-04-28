@@ -323,6 +323,7 @@ def generate_episode(
         metadata_json = write_metadata_json(
             frame_id=frame_id,
             episode_id=episode_str,
+            scene_id=scene_id,
             timestamp_sec=frame_idx * 0.2,  # 5Hz
             robot_state={
                 "position_m": [x_pos, -standoff_current, -5.0],

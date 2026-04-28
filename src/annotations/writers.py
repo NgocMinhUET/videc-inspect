@@ -128,12 +128,12 @@ def write_geometry_json(
     spalls: List[Dict],
 ) -> Dict:
     """
-    Write geometry layer JSON.
+    Write geometry layer JSON with standardized schema.
     
     Args:
         frame_id: Frame number
         cracks: List of crack defects
-        spalls: List of spalling defects
+        spalls: List of spall defects
         
     Returns:
         geometry_dict: Geometry annotation dictionary
@@ -146,7 +146,7 @@ def write_geometry_json(
         
         geometry_entry = {
             "defect_id": crack['defect_id'],
-            "class": "crack",
+            "class_name": "crack",  # Standardized
             "skeleton": {
                 "type": "polyline",
                 "coordinates_px": skeleton_coords,
@@ -164,7 +164,7 @@ def write_geometry_json(
         
         geometry_entry = {
             "defect_id": spall['defect_id'],
-            "class": "spalling",
+            "class_name": "spall",  # Standardized to "spall" not "spalling"
             "contour": {
                 "type": "polygon",
                 "coordinates_px": contour_coords,
@@ -176,7 +176,11 @@ def write_geometry_json(
         }
         defects_geometry.append(geometry_entry)
     
+    # Add benchmark metadata
     geometry_dict = {
+        "benchmark_name": benchmark_config.benchmark_name,
+        "benchmark_version": benchmark_config.benchmark_version,
+        "annotation_layer": "geometry",
         "frame_id": frame_id,
         "defects_geometry": defects_geometry,
     }
@@ -298,12 +302,12 @@ def write_verification_json(
     image_quality: Optional[Dict] = None,
 ) -> Dict:
     """
-    Write verification layer JSON.
+    Write verification layer JSON with standardized schema.
     
     Args:
         frame_id: Frame number
         cracks: List of crack defects
-        spalls: List of spalling defects
+        spalls: List of spall defects
         negatives: List of hard negatives
         image_quality: Image quality metrics
         
@@ -321,21 +325,24 @@ def write_verification_json(
     
     # Process cracks
     for crack in cracks:
+        # Get verification requirements from config
+        verification_reqs = benchmark_config.get_verification_requirements('crack')
+        
         verification_entry = {
             "defect_id": crack['defect_id'],
-            "class": "crack",
+            "class_name": "crack",  # Standardized
             "visibility": "partial" if crack['difficulty'] == "hard" else "clear",
             "occlusion_ratio": 0.15 if crack['difficulty'] == "hard" else 0.0,
             "image_quality": image_quality.copy(),
-            "minimal_evidence_level": crack.get('minimal_evidence_level', 'roi_plus_skeleton'),
+            "minimal_evidence_level": verification_reqs.get('minimal_evidence', []),
             "evidence_available": {
                 "has_roi": True,
                 "has_mask": True,
                 "has_skeleton": True,
                 "has_width_profile": True,
             },
-            "verification_status": "confirmed",
-            "requires_closeup": crack.get('requires_closeup', True),
+            "verification_status": "confirmed",  # TODO P2: Make dynamic based on quality
+            "requires_closeup": verification_reqs.get('closeup_beneficial', True),
             "closeup_benefit": {
                 "expected_improvement": "width_measurement_refinement",
                 "priority": "medium" if crack['severity'] in ["moderate", "severe"] else "low",
@@ -343,27 +350,30 @@ def write_verification_json(
             "ambiguity_zone": crack['difficulty'] == "hard",
             "ambiguity_reason": "low_contrast" if crack['difficulty'] == "hard" else None,
             "confusable_with": [],
-            "ground_truth_confidence": 1.0,
+            "ground_truth_confidence": 1.0,  # TODO P2: Make dynamic
         }
         defects_verification.append(verification_entry)
     
     # Process spalls
     for spall in spalls:
+        # Get verification requirements from config
+        verification_reqs = benchmark_config.get_verification_requirements('spall')
+        
         verification_entry = {
             "defect_id": spall['defect_id'],
-            "class": "spalling",
+            "class_name": "spall",  # Standardized to "spall" not "spalling"
             "visibility": "partial" if spall['difficulty'] == "hard" else "clear",
             "occlusion_ratio": 0.10 if spall['difficulty'] == "hard" else 0.0,
             "image_quality": image_quality.copy(),
-            "minimal_evidence_level": spall.get('minimal_evidence_level', 'roi_plus_area'),
+            "minimal_evidence_level": verification_reqs.get('minimal_evidence', []),
             "evidence_available": {
                 "has_roi": True,
                 "has_mask": True,
                 "has_depth": True,
                 "has_volume": True,
             },
-            "verification_status": "confirmed",
-            "requires_closeup": spall.get('requires_closeup', False),
+            "verification_status": "confirmed",  # TODO P2: Make dynamic
+            "requires_closeup": verification_reqs.get('closeup_beneficial', False),
             "closeup_benefit": {
                 "expected_improvement": "depth_measurement_refinement",
                 "priority": "low" if spall['difficulty'] == "easy" else "medium",
@@ -371,7 +381,7 @@ def write_verification_json(
             "ambiguity_zone": spall['difficulty'] == "hard",
             "ambiguity_reason": "low_contrast" if spall['difficulty'] == "hard" else None,
             "confusable_with": [],
-            "ground_truth_confidence": 1.0,
+            "ground_truth_confidence": 1.0,  # TODO P2: Make dynamic
         }
         defects_verification.append(verification_entry)
     
@@ -387,7 +397,11 @@ def write_verification_json(
         }
         negatives_verification.append(verification_entry)
     
+    # Add benchmark metadata
     verification_dict = {
+        "benchmark_name": benchmark_config.benchmark_name,
+        "benchmark_version": benchmark_config.benchmark_version,
+        "annotation_layer": "verification",
         "frame_id": frame_id,
         "defects_verification": defects_verification,
         "hard_negatives_verification": negatives_verification,
@@ -399,6 +413,7 @@ def write_verification_json(
 def write_metadata_json(
     frame_id: int,
     episode_id: str,
+    scene_id: str,
     timestamp_sec: float,
     robot_state: Dict,
     camera_state: Dict,
@@ -407,11 +422,12 @@ def write_metadata_json(
     negative_ids: List[str],
 ) -> Dict:
     """
-    Write frame metadata JSON.
+    Write frame metadata JSON with standardized schema.
     
     Args:
         frame_id: Frame number
         episode_id: Episode identifier
+        scene_id: Scene identifier
         timestamp_sec: Time since episode start
         robot_state: Robot position, orientation, velocity
         camera_state: Camera pose relative to wall
@@ -423,12 +439,26 @@ def write_metadata_json(
         metadata_dict: Metadata dictionary
     """
     metadata_dict = {
-        "frame_id": frame_id,
+        # Benchmark metadata
+        "benchmark_name": benchmark_config.benchmark_name,
+        "benchmark_version": benchmark_config.benchmark_version,
+        "annotation_layer": "metadata",
+        
+        # Scene and frame identification
+        "scene_family": "flat_wall",
+        "scene_id": scene_id,
         "episode_id": episode_id,
+        "frame_id": frame_id,
         "timestamp_sec": float(timestamp_sec),
+        
+        # Robot state
         "robot_state": robot_state,
         "camera_state": camera_state,
+        
+        # Environment
         "environment": environment,
+        
+        # Defects in view
         "defect_ids_in_view": defect_ids,
         "negative_ids_in_view": negative_ids,
     }
