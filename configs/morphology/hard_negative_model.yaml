@@ -1,0 +1,66 @@
+# Hard negative priors for ViDEC-Inspect v0.2.
+# NOTE: top-level type keys match the v0.1 validator's ALLOWED_NEGATIVE_TYPES
+# exactly. The 'biofouling' alias is documented inside the biological_growth
+# entry to satisfy the v0.2 prompt vocabulary without breaking validation.
+
+version: 0.2
+
+types:
+  stain:
+    description: "Dark stain confusable with cracks."
+    coverage_area_m2: [0.001, 0.025]
+    edge_softness: [0.6, 1.2]
+    texture_frequency: [0.03, 0.10]
+    color_shift_value: [-0.20, -0.05]
+    contrast_range: [0.05, 0.20]
+    confusability_score: [0.55, 0.85]
+    confusable_with: crack
+
+  shadow:
+    description: "Cast shadow confusable with spall."
+    coverage_area_m2: [0.003, 0.030]
+    edge_softness: [1.5, 3.5]
+    texture_frequency: [0.0, 0.02]
+    color_shift_value: [-0.30, -0.10]
+    contrast_range: [0.10, 0.30]
+    confusability_score: [0.40, 0.70]
+    confusable_with: spall
+
+  texture_variation:
+    description: "Concrete-internal texture variation confusable with spall."
+    coverage_area_m2: [0.002, 0.020]
+    edge_softness: [0.8, 2.0]
+    texture_frequency: [0.08, 0.20]
+    color_shift_value: [-0.05, 0.10]
+    contrast_range: [0.04, 0.15]
+    confusability_score: [0.30, 0.60]
+    confusable_with: spall
+
+  biological_growth:
+    description: "Algae/biofouling patches. Alias: biofouling."
+    aliases: [biofouling]
+    coverage_area_m2: [0.001, 0.020]
+    edge_softness: [1.0, 2.5]
+    texture_frequency: [0.12, 0.30]
+    color_shift_hue_deg: [60, 140]
+    color_shift_value: [-0.10, 0.05]
+    contrast_range: [0.08, 0.25]
+    confusability_score: [0.30, 0.55]
+    confusable_with: spall
+
+  surface_artifact:
+    description: "Repair patch, paint drip, or smooth surface treatment."
+    coverage_area_m2: [0.001, 0.012]
+    edge_softness: [0.3, 1.0]
+    texture_frequency: [0.0, 0.04]
+    color_shift_value: [0.05, 0.25]
+    contrast_range: [0.15, 0.35]
+    confusability_score: [0.20, 0.45]
+    confusable_with: spall
+
+distribution:
+  stain: 0.35
+  shadow: 0.25
+  texture_variation: 0.20
+  biological_growth: 0.10
+  surface_artifact: 0.10

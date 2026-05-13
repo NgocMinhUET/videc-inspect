@@ -1,0 +1,83 @@
+version: 0.2-calibrated
+class: spall
+calibration_provenance:
+  method: contour analysis + lognormal MLE
+  source_description: 'Smoke test v2: v0.2 synthetic + v0.1 masks, DCP B_c'
+  timestamp_utc: '2026-05-12T10:06:26Z'
+  num_samples: 100
+  pixel_to_meter: 0.00156
+area_distribution:
+  type: lognormal
+  mean_log_m2: -3.8836113802294174
+  std_log: 0.5478477893873367
+  clip_m2:
+  - 0.0090067536
+  - 0.045970703999999994
+perimeter_distribution_empirical:
+  type: lognormal
+  mean_log: -0.5614590547119631
+  std_log: 0.2615018240493805
+  clip:
+  - 0.37724446460723876
+  - 0.8237022776699066
+  n: 100
+  median: 0.5933979383397102
+  p10: 0.4135246946425438
+  p90: 0.7793971637864117
+eccentricity_range_empirical:
+- 0.37190422224395076
+- 0.7041559776782595
+boundary_irregularity_range_empirical:
+- 0.055314629524946216
+- 0.14436275362968512
+depth_distribution:
+  type: lognormal
+  mean_log_mm: 1.8
+  std_log: 0.6
+  clip_mm:
+  - 2.0
+  - 35.0
+boundary_irregularity:
+  num_vertices_range:
+  - 6
+  - 14
+  radial_perturb_std:
+  - 0.1
+  - 0.3
+edge_chipping:
+  probability_by_severity:
+    minor: 0.2
+    moderate: 0.45
+    severe: 0.7
+  notch_count_range:
+  - 1
+  - 6
+  notch_size_fraction:
+  - 0.05
+  - 0.18
+internal_roughness:
+  base_amplitude: 0.15
+  exposed_aggregate_probability_by_severity:
+    minor: 0.1
+    moderate: 0.35
+    severe: 0.7
+  exposed_rebar_probability_by_severity:
+    minor: 0.0
+    moderate: 0.05
+    severe: 0.25
+depth_bowl:
+  shape_exponent_p_range:
+  - 1.5
+  - 3.5
+  shape_exponent_q_range:
+  - 0.5
+  - 1.5
+severity_thresholds:
+  method: depth_based
+  minor:
+    max_depth_mm: 5.0
+  moderate:
+    min_depth_mm: 5.0
+    max_depth_mm: 20.0
+  severe:
+    min_depth_mm: 20.0

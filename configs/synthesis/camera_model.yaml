@@ -1,0 +1,34 @@
+# Camera and sensor degradation parameters for ViDEC-Inspect v0.2.
+
+version: 0.2
+
+sensor:
+  resolution: [1920, 1080]
+  fov_deg: 90.0
+  bit_depth: 8
+
+exposure:
+  range: [0.55, 1.45]
+  default: 1.0
+
+gain:
+  range: [1.0, 4.0]
+  default: 1.0
+
+noise:
+  gaussian_sigma_range: [0.005, 0.05]
+  poisson_scale_range: [0.0, 0.02]
+
+blur:
+  defocus_sigma_range: [0.0, 1.5]
+  motion_blur_kernel_range: [0, 9]
+  motion_blur_angle_deg: [0.0, 180.0]
+
+compression:
+  enabled: true
+  jpeg_quality_range: [70, 95]
+  apply_probability: 0.5
+
+distortion:
+  enabled: false
+  radial_k1_range: [-0.05, 0.05]

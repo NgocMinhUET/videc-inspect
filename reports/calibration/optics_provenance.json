@@ -1,0 +1,111 @@
+{
+  "aggregated": {
+    "water_types": {
+      "clear": {
+        "num_samples": 8,
+        "beta_rgb_median": [
+          NaN,
+          NaN,
+          NaN
+        ],
+        "beta_r_range": null,
+        "beta_g_range": null,
+        "beta_b_range": null,
+        "backscatter_strength_range": [
+          0.38823530077934265,
+          0.5173856616020203
+        ],
+        "contrast_scale_range": [
+          0.023499546572566032,
+          0.03048424981534481
+        ],
+        "blur_sigma_proxy_range": [
+          0.7803781628608704,
+          2.241940498352051
+        ]
+      },
+      "moderate": {
+        "num_samples": 8,
+        "beta_rgb_median": [
+          NaN,
+          NaN,
+          NaN
+        ],
+        "beta_r_range": null,
+        "beta_g_range": null,
+        "beta_b_range": null,
+        "backscatter_strength_range": [
+          0.4197385609149933,
+          0.5061438083648682
+        ],
+        "contrast_scale_range": [
+          0.024795174598693848,
+          0.028797851875424385
+        ],
+        "blur_sigma_proxy_range": [
+          0.4563535451889038,
+          2.461118221282959
+        ]
+      },
+      "turbid": {
+        "num_samples": 9,
+        "beta_rgb_median": [
+          NaN,
+          NaN,
+          NaN
+        ],
+        "beta_r_range": null,
+        "beta_g_range": null,
+        "beta_b_range": null,
+        "backscatter_strength_range": [
+          0.41594770550727844,
+          0.4888888895511627
+        ],
+        "contrast_scale_range": [
+          0.019264960661530495,
+          0.025656314566731453
+        ],
+        "blur_sigma_proxy_range": [
+          1.3224788904190063,
+          2.463186025619507
+        ]
+      }
+    },
+    "global": {
+      "num_samples": 25,
+      "beta_rgb_median": [
+        NaN,
+        NaN,
+        NaN
+      ],
+      "beta_r_range": null,
+      "beta_g_range": null,
+      "beta_b_range": null,
+      "backscatter_strength_range": [
+        0.4031372666358948,
+        0.5040522813796997
+      ],
+      "contrast_scale_range": [
+        0.021167179569602013,
+        0.029752496629953384
+      ],
+      "blur_sigma_proxy_range": [
+        1.158285140991211,
+        2.497382879257202
+      ]
+    },
+    "method": {
+      "d_bar_m": 2.0,
+      "reference_J": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "percentile_low": 10.0,
+      "percentile_high": 90.0,
+      "auto_binned": true,
+      "num_images": 25
+    }
+  },
+  "n_images_used": 25
+}

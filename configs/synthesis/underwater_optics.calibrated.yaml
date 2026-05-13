@@ -1,0 +1,166 @@
+version: 0.2-calibrated
+calibration_provenance:
+  method: simplified image-formation inversion (no depth required)
+  source_description: 'Smoke test v2: v0.2 synthetic + v0.1 masks, DCP B_c'
+  timestamp_utc: '2026-05-12T10:06:23Z'
+  d_bar_m: 2.0
+  reference_J:
+  - 0.5
+  - 0.5
+  - 0.5
+  percentile_low: 10.0
+  percentile_high: 90.0
+  num_images: 25
+  auto_binned: true
+  notes: beta_rgb identifiable only up to assumed d_bar; ranges are corpus-relative
+    percentiles. Use as informed priors, not as measured constants.
+water_types:
+  clear:
+    description: Open water, low particulate load (Jerlov I-like).
+    beta_rgb:
+    - 0.15
+    - 0.08
+    - 0.04
+    beta_rgb_range_lo:
+    - 0.15
+    - 0.08
+    - 0.04
+    beta_rgb_range_hi:
+    - 0.15
+    - 0.08
+    - 0.04
+    backscatter_color_rgb:
+    - 0.45
+    - 0.65
+    - 0.78
+    backscatter_strength:
+    - 0.38823530077934265
+    - 0.5173856616020203
+    blur_sigma:
+    - 0.7803781628608704
+    - 2.241940498352051
+    contrast_scale:
+    - 0.023499546572566032
+    - 0.03048424981534481
+    particle_noise_strength:
+    - 0.0
+    - 0.01
+    num_calibration_samples: 8
+    _field_source:
+      beta_r: fallback_v02
+      beta_g: fallback_v02
+      beta_b: fallback_v02
+      backscatter_strength: empirical
+      blur_sigma: empirical
+      contrast_scale: empirical
+  moderate:
+    description: Coastal water, mild turbidity.
+    beta_rgb:
+    - 0.35
+    - 0.18
+    - 0.1
+    beta_rgb_range_lo:
+    - 0.35
+    - 0.18
+    - 0.1
+    beta_rgb_range_hi:
+    - 0.35
+    - 0.18
+    - 0.1
+    backscatter_color_rgb:
+    - 0.4
+    - 0.55
+    - 0.6
+    backscatter_strength:
+    - 0.4197385609149933
+    - 0.5061438083648682
+    blur_sigma:
+    - 0.4563535451889038
+    - 2.461118221282959
+    contrast_scale:
+    - 0.024795174598693848
+    - 0.028797851875424385
+    particle_noise_strength:
+    - 0.01
+    - 0.025
+    num_calibration_samples: 8
+    _field_source:
+      beta_r: fallback_v02
+      beta_g: fallback_v02
+      beta_b: fallback_v02
+      backscatter_strength: empirical
+      blur_sigma: empirical
+      contrast_scale: empirical
+  turbid:
+    description: Harbor/estuarine, high suspended matter.
+    beta_rgb:
+    - 0.65
+    - 0.35
+    - 0.22
+    beta_rgb_range_lo:
+    - 0.65
+    - 0.35
+    - 0.22
+    beta_rgb_range_hi:
+    - 0.65
+    - 0.35
+    - 0.22
+    backscatter_color_rgb:
+    - 0.35
+    - 0.45
+    - 0.45
+    backscatter_strength:
+    - 0.41594770550727844
+    - 0.4888888895511627
+    blur_sigma:
+    - 1.3224788904190063
+    - 2.463186025619507
+    contrast_scale:
+    - 0.019264960661530495
+    - 0.025656314566731453
+    particle_noise_strength:
+    - 0.025
+    - 0.05
+    num_calibration_samples: 9
+    _field_source:
+      beta_r: fallback_v02
+      beta_g: fallback_v02
+      beta_b: fallback_v02
+      backscatter_strength: empirical
+      blur_sigma: empirical
+      contrast_scale: empirical
+lighting:
+  low:
+    exposure:
+    - 0.55
+    - 0.85
+    noise_level:
+    - 0.03
+    - 0.07
+    falloff_strength:
+    - 0.25
+    - 0.45
+  normal:
+    exposure:
+    - 0.85
+    - 1.15
+    noise_level:
+    - 0.01
+    - 0.035
+    falloff_strength:
+    - 0.1
+    - 0.25
+  high:
+    exposure:
+    - 1.1
+    - 1.45
+    noise_level:
+    - 0.005
+    - 0.02
+    falloff_strength:
+    - 0.05
+    - 0.15
+clarity_alias:
+  clear: clear
+  moderate: moderate
+  murky: turbid

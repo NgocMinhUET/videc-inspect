@@ -1,0 +1,80 @@
+version: 0.2-calibrated
+class: crack
+calibration_provenance:
+  method: skeletonization + lognormal MLE (scipy.stats.lognorm)
+  source_description: 'Smoke test v2: v0.2 synthetic + v0.1 masks, DCP B_c'
+  timestamp_utc: '2026-05-12T10:06:26Z'
+  num_samples: 100
+  pixel_to_meter: 0.00156
+length_distribution:
+  type: lognormal
+  mean_log_m: -1.3613273655638494
+  std_log: 0.23447831234965802
+  clip_m:
+  - 0.18096
+  - 0.40715999999999997
+width_distribution:
+  type: lognormal
+  mean_log_mm: 1.9108685989217509
+  std_log: 0.2719034785286757
+  clip_mm:
+  - 4.6873933649289095
+  - 9.51864406779661
+tortuosity_range_empirical:
+- 0.8839086521680868
+- 1.0782918026931056
+orientation_range_deg_empirical:
+- 23.25415610438744
+- 173.72619229244535
+width_profile:
+  std_ratio_range:
+  - 0.1
+  - 0.35
+  smoothing_alpha: 0.7
+tortuosity_distribution:
+  type: beta
+  alpha: 2.0
+  beta: 5.0
+  scale: 2.5
+orientation_distribution:
+  type: uniform
+  range_deg:
+  - 0.0
+  - 180.0
+branch_probability_by_severity:
+  minor: 0.1
+  moderate: 0.25
+  severe: 0.45
+branch_count_max: 3
+branch_angle_deg:
+- 25
+- 65
+edge_roughness_by_severity:
+  minor:
+  - 0.05
+  - 0.2
+  moderate:
+  - 0.15
+  - 0.4
+  severe:
+  - 0.3
+  - 0.65
+contrast_range_by_severity:
+  minor:
+  - 0.1
+  - 0.25
+  moderate:
+  - 0.2
+  - 0.4
+  severe:
+  - 0.3
+  - 0.55
+severity_thresholds:
+  method: width_based
+  minor:
+    max_width_mm: 1.0
+  moderate:
+    min_width_mm: 1.0
+    max_width_mm: 4.0
+  severe:
+    min_width_mm: 4.0

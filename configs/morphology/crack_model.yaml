@@ -1,0 +1,57 @@
+# Crack morphology priors for ViDEC-Inspect v0.2.
+# These priors extend v0.1 configs/defects/crack.yaml with profile and
+# tortuosity statistics. They are interpretable, physically motivated, and
+# meant to be empirically calibratable against real datasets.
+
+version: 0.2
+class: crack
+
+length_distribution:
+  type: lognormal
+  mean_log_m: -1.7      # ~0.18 m median
+  std_log: 0.6
+  clip_m: [0.05, 0.80]
+
+width_distribution:
+  type: lognormal
+  mean_log_mm: 0.3      # ~1.35 mm median
+  std_log: 0.6
+  clip_mm: [0.3, 8.0]
+
+width_profile:
+  std_ratio_range: [0.10, 0.35]
+  smoothing_alpha: 0.7
+
+tortuosity_distribution:
+  type: beta
+  alpha: 2.0
+  beta: 5.0
+  scale: 2.5            # tortuosity in [1, 1 + scale]
+
+orientation_distribution:
+  type: uniform
+  range_deg: [0.0, 180.0]
+
+branch_probability_by_severity:
+  minor: 0.10
+  moderate: 0.25
+  severe: 0.45
+
+branch_count_max: 3
+branch_angle_deg: [25, 65]
+
+edge_roughness_by_severity:
+  minor: [0.05, 0.20]
+  moderate: [0.15, 0.40]
+  severe: [0.30, 0.65]
+
+contrast_range_by_severity:
+  minor: [0.10, 0.25]
+  moderate: [0.20, 0.40]
+  severe: [0.30, 0.55]
+
+severity_thresholds:
+  method: width_based
+  minor:    { max_width_mm: 1.0 }
+  moderate: { min_width_mm: 1.0, max_width_mm: 4.0 }
+  severe:   { min_width_mm: 4.0 }

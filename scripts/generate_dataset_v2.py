@@ -33,6 +33,11 @@ from src.scene import (
     CaptureConditions,
     PlaceholderFlatWallSource,
     HoloOceanFlatWallSource,
+    PhysicsAwareFlatWallSource,
+)
+from src.synthesis import (
+    apply_underwater_optics,
+    apply_camera_model,
 )
 from src.utils import (
     save_json,
@@ -54,6 +59,9 @@ def build_frame_source(
     """Build the requested frame source backend."""
     if data_source == "placeholder":
         return PlaceholderFlatWallSource(frame_size=frame_size)
+
+    if data_source == "physics":
+        return PhysicsAwareFlatWallSource(frame_size=frame_size)
 
     if data_source == "holoocean":
         if scenario_cfg is None:
@@ -204,6 +212,41 @@ def generate_episode(
             pixel_to_meter=pixel_to_meter_current,
         )
 
+        # ---- v0.2 physics-aware post-processing ----
+        # When the source is the physics-aware backend, apply the underwater
+        # optical model and camera degradation AFTER defect compositing so
+        # that masks/skeletons/contours and depth modifications remain the
+        # authoritative ground truth (label-preserving).
+        optical_quality_metrics = None
+        camera_quality_metrics = None
+        water_type = None
+        lighting_level = None
+        if capture.extra:
+            water_type = capture.extra.get("water_type")
+            lighting_level = capture.extra.get("lighting_level")
+
+        if capture.source_name == "physics_aware_flat_wall":
+            optics_seed = (
+                seed + episode_id * 1000 + frame_idx + 7777
+                if seed is not None else None
+            )
+            rgb_with_defects, optical_quality_metrics = apply_underwater_optics(
+                rgb_clean=rgb_with_defects,
+                depth_map=depth_with_defects,
+                water_type=water_type or "moderate",
+                lighting_level=lighting_level or "normal",
+                seed=optics_seed,
+            )
+            rgb_with_defects, camera_quality_metrics = apply_camera_model(
+                rgb=rgb_with_defects,
+                exposure=1.0,
+                gain=1.0,
+                noise_level=0.012,
+                blur_sigma=0.4,
+                compression_quality=88,
+                seed=(optics_seed + 11) if optics_seed is not None else None,
+            )
+
         paths = get_frame_paths(output_dir, episode_id, frame_id)
         ensure_dir(paths["frame_dir"])
         ensure_dir(paths["masks_dir"])
@@ -214,11 +257,20 @@ def generate_episode(
         np.save(paths["depth_npy"], depth_with_defects)
 
         depth_quality = compute_depth_quality_metrics(depth_with_defects, standoff_current)
-        image_quality = {
-            **depth_quality,
-            "sharpness_score": 0.75,
-            "contrast_score": 0.70,
-        }
+        if optical_quality_metrics is not None:
+            image_quality = {
+                **depth_quality,
+                "sharpness_score": float(optical_quality_metrics["sharpness_score"]),
+                "contrast_score": float(optical_quality_metrics["contrast_score"]),
+                "visibility_score": float(optical_quality_metrics["visibility_score"]),
+                "color_cast_strength": float(optical_quality_metrics["color_cast_strength"]),
+            }
+        else:
+            image_quality = {
+                **depth_quality,
+                "sharpness_score": 0.75,
+                "contrast_score": 0.70,
+            }
 
         detection_json = write_detection_json(
             frame_id=frame_id,
@@ -280,6 +332,16 @@ def generate_episode(
                 "ambient_illumination_lux": conditions.ambient_illumination_lux,
                 "artificial_light": conditions.artificial_light,
                 "source_name": capture.source_name,
+                "data_source": (
+                    "physics" if capture.source_name == "physics_aware_flat_wall"
+                    else ("holoocean" if capture.source_name.startswith("holoocean")
+                          else "placeholder")
+                ),
+                "water_type": water_type,
+                "lighting_level": lighting_level,
+                "optical_quality_metrics": optical_quality_metrics,
+                "camera_quality_metrics": camera_quality_metrics,
+                "material_metadata": (capture.extra or {}).get("material"),
             },
             defect_ids=defect_ids,
             negative_ids=negative_ids,
@@ -318,8 +380,9 @@ def generate_dataset(
     data_source: str = "placeholder",
 ):
     """Generate the ViDEC-Inspect dataset using the selected backend source."""
+    version_label = "v0.2" if data_source == "physics" else "v0.1"
     print("=" * 70)
-    print("ViDEC-Inspect v0.1 Dataset Generation")
+    print(f"ViDEC-Inspect {version_label} Dataset Generation")
     print("=" * 70)
     print(f"Data source: {data_source}")
     print(f"Output: {output_dir}")
@@ -376,9 +439,13 @@ def generate_dataset(
     summary = {
         "benchmark_name": benchmark_config.benchmark_name,
         "benchmark_version": benchmark_config.benchmark_version,
-        "dataset_version": f"v0.1_{data_source}",
+        "dataset_version": (
+            f"v0.2_{data_source}" if data_source == "physics"
+            else f"v0.1_{data_source}"
+        ),
         "data_source": data_source,
         "holoocean_integrated": data_source == "holoocean",
+        "physics_aware_synthesis": data_source == "physics",
         "num_episodes": num_episodes,
         "frames_per_episode": frames_per_episode,
         "total_frames": total_frames,
@@ -424,7 +491,7 @@ def main():
         "--data_source",
         type=str,
         default="placeholder",
-        choices=["placeholder", "holoocean"],
+        choices=["placeholder", "physics", "holoocean"],
         help="Frame source backend",
     )
 

@@ -1,0 +1,54 @@
+# Underwater optical image formation parameters for ViDEC-Inspect v0.2.
+# Ranges are intentionally bracketed because they are priors to be calibrated
+# against real-world references (Jerlov classes, UIEB/EUVP/Sea-thru statistics).
+
+version: 0.2
+
+water_types:
+  clear:
+    description: "Open water, low particulate load (Jerlov I-like)."
+    beta_rgb: [0.15, 0.08, 0.04]
+    backscatter_color_rgb: [0.45, 0.65, 0.78]
+    backscatter_strength: [0.02, 0.05]
+    blur_sigma: [0.0, 0.6]
+    contrast_scale: [0.85, 1.0]
+    particle_noise_strength: [0.0, 0.01]
+
+  moderate:
+    description: "Coastal water, mild turbidity."
+    beta_rgb: [0.35, 0.18, 0.10]
+    backscatter_color_rgb: [0.40, 0.55, 0.60]
+    backscatter_strength: [0.06, 0.14]
+    blur_sigma: [0.6, 1.5]
+    contrast_scale: [0.60, 0.85]
+    particle_noise_strength: [0.01, 0.025]
+
+  turbid:
+    description: "Harbor/estuarine, high suspended matter."
+    beta_rgb: [0.65, 0.35, 0.22]
+    backscatter_color_rgb: [0.35, 0.45, 0.45]
+    backscatter_strength: [0.15, 0.30]
+    blur_sigma: [1.5, 3.0]
+    contrast_scale: [0.35, 0.65]
+    particle_noise_strength: [0.025, 0.05]
+
+lighting:
+  low:
+    exposure: [0.55, 0.85]
+    noise_level: [0.03, 0.07]
+    falloff_strength: [0.25, 0.45]
+  normal:
+    exposure: [0.85, 1.15]
+    noise_level: [0.01, 0.035]
+    falloff_strength: [0.10, 0.25]
+  high:
+    exposure: [1.10, 1.45]
+    noise_level: [0.005, 0.02]
+    falloff_strength: [0.05, 0.15]
+
+# Mapping from v0.1 water_clarity terms to v0.2 water types so existing
+# condition configs (configs/conditions/env_matrix_v01.yaml) keep working.
+clarity_alias:
+  clear: clear
+  moderate: moderate
+  murky: turbid

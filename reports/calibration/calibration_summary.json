@@ -1,0 +1,15 @@
+{
+  "source_description": "Smoke test v2: v0.2 synthetic + v0.1 masks, DCP B_c",
+  "optics": {
+    "n_images_used": 25,
+    "yaml": "configs/synthesis/underwater_optics.calibrated.yaml"
+  },
+  "crack": {
+    "n": 100,
+    "yaml": "configs/morphology/crack_model.calibrated.yaml"
+  },
+  "spall": {
+    "n": 100,
+    "yaml": "configs/morphology/spall_model.calibrated.yaml"
+  }
+}
